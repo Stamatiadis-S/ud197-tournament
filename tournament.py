@@ -5,11 +5,9 @@
 
 import psycopg2
 
-
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
-
 
 def deleteMatches(tournament):
     """Remove all the match records from the database for a specific tournament.
@@ -86,6 +84,7 @@ def registerPlayer(name):
 
 def registerPlayerWithId(id, name):
     """Adds a player to the database.
+    
     Args:
       id: the player's id (please choose a unique one).
       name: the player's full name (need not be unique).
