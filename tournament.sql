@@ -1,49 +1,42 @@
 -- Table definitions for the tournament project.
---
--- Put your SQL 'create table' statements in this file; also 'create view'
--- statements if you choose to use it.
---
--- You can write comments in this file by starting them with two dashes, like
--- these lines here.
 
--- First create a database named "tournament" using the psql command: 'CREATE DATABASE tournament;'.
--- Connect to the database.
+-- Move outside tournament database if already connected.
+\c postgres;
+
+-- Recreate database and connect.
+-- Warning! This erases all previous data under the "tournament" database.
+DROP DATABASE IF EXISTS tournament;
+CREATE DATABASE tournament;
 \c tournament;
-
--- Drop previously created tables.
-DROP TABLE IF EXISTS matches CASCADE;
-DROP TABLE IF EXISTS tournaments_score CASCADE;
-DROP TABLE IF EXISTS tournaments CASCADE;
-DROP TABLE IF EXISTS players CASCADE;
 
 -- Create tables and views.
 CREATE TABLE tournaments (
-id serial,
-name text NOT NULL,
+id SERIAL,
+name TEXT NOT NULL,
 PRIMARY KEY (id)
 );
 
 CREATE TABLE players (
-id serial,
-name text NOT NULL,
+id SERIAL,
+name TEXT NOT NULL,
 PRIMARY KEY (id)
 );
 
 CREATE TABLE tournaments_score (
-tournament_id integer,
-player_id integer,
-wins integer DEFAULT 0,
-matches integer DEFAULT 0,
+tournament_id INTEGER,
+player_id INTEGER,
+wins INTEGER DEFAULT 0,
+matches INTEGER DEFAULT 0,
 FOREIGN KEY (tournament_id) REFERENCES tournaments (id),
 FOREIGN KEY (player_id) REFERENCES players (id),
 PRIMARY KEY (tournament_id, player_id)
 );
 
 CREATE TABLE matches (
-id serial,
-tournament_id integer,
-winner_id integer,
-loser_id integer,
+id SERIAL,
+tournament_id INTEGER,
+winner_id INTEGER,
+loser_id INTEGER,
 FOREIGN KEY (tournament_id) REFERENCES tournaments (id),
 FOREIGN KEY (winner_id) REFERENCES players (id),
 FOREIGN KEY (loser_id) REFERENCES players (id),

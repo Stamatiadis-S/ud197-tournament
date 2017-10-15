@@ -1,13 +1,39 @@
 #!/usr/bin/env python
 #
 # tournament.py -- implementation of a Swiss-system tournament
-#
 
 import psycopg2
 
+database_name = "tournament"
+
 def connect():
-    """Connect to the PostgreSQL database.  Returns a database connection."""
-    return psycopg2.connect("dbname=tournament")
+    """Connect to the PostgreSQL database.  Returns a database connection along with a cursor."""
+    try:
+        db = psycopg2.connect("dbname={}".format(database_name))
+        c = db.cursor()
+        return db, c
+    except psycopg2.Error as e:
+        print "Unable to connect to database"
+        sys.exit(1)
+
+def executeQuery(query, data=None):
+    db, cursor = connect()
+    if data is None:
+        cursor.execute(query)
+    else:
+        cursor.execute(query, data)
+    result = cursor.fetchall()
+    db.close()
+    return result
+
+def commitQuery(query, data=None):
+    db, cursor = connect()
+    if data is None:
+        cursor.execute(query)
+    else:
+        cursor.execute(query, data)
+    db.commit()
+    db.close()
 
 def deleteMatches(tournament):
     """Remove all the match records from the database for a specific tournament.
@@ -15,36 +41,22 @@ def deleteMatches(tournament):
     Args:
       tournament: the tournament's id.
     """
-    db = connect()
-    db.cursor().execute("DELETE FROM matches WHERE tournament_id = %s", (tournament,))
-    db.cursor().execute("UPDATE tournaments_score SET wins = 0, matches = 0 WHERE tournament_id = %s", (tournament,))
-    db.commit()
-    db.close()
+    commitQuery("DELETE FROM matches WHERE tournament_id = %s", (tournament,))
+    commitQuery("UPDATE tournaments_score SET wins = 0, matches = 0 WHERE tournament_id = %s", (tournament,))
 
 def deletePlayers():
     """Remove all players registered in the database."""
-    db = connect()
-    db.cursor().execute("DELETE FROM players")
-    db.commit()
-    db.close()
+    commitQuery("DELETE FROM players")
 
 def deleteTournaments():
     """Remove all the tournaments from the database."""
-    db = connect()
-    db.cursor().execute("DELETE FROM tournaments_score")
-    db.cursor().execute("DELETE FROM matches")
-    db.cursor().execute("DELETE FROM tournaments")
-    db.commit()
-    db.close()
+    commitQuery("DELETE FROM tournaments_score")
+    commitQuery("DELETE FROM matches")
+    commitQuery("DELETE FROM tournaments")
 
 def countPlayers():
     """Returns the number of players currently registered in the database."""
-    db = connect()
-    cursor = db.cursor()
-    cursor.execute("SELECT COUNT(*) FROM players")
-    result = cursor.fetchone()
-    db.close()
-    return result[0]
+    return executeQuery("SELECT COUNT(*) FROM players")[0][0]
 
 def createTournament(name):
     """Adds a tournament to the database.
@@ -52,10 +64,7 @@ def createTournament(name):
     Args:
        name: the tournament's name.
     """
-    db = connect()
-    db.cursor().execute("INSERT INTO tournaments (name) VALUES(%s)", (name,))
-    db.commit()
-    db.close()
+    commitQuery("INSERT INTO tournaments (name) VALUES(%s)", (name,))
 
 def createTournamentWithId(id, name):
     """Adds a torunament to the database.
@@ -64,10 +73,7 @@ def createTournamentWithId(id, name):
        id: the tournament's id.
        name: the tournament's name.
     """
-    db = connect()
-    db.cursor().execute("INSERT INTO tournaments (id, name) VALUES(%s, %s)", (id, name))
-    db.commit()
-    db.close()
+    commitQuery("INSERT INTO tournaments (id, name) VALUES(%s, %s)", (id, name))
 
 def registerPlayer(name):
     """Adds a player to the database.
@@ -77,22 +83,16 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-    db = connect()
-    db.cursor().execute("INSERT INTO players (name) VALUES (%s)", (name,))
-    db.commit()
-    db.close()
+    commitQuery("INSERT INTO players (name) VALUES (%s)", (name,))
 
 def registerPlayerWithId(id, name):
     """Adds a player to the database.
-    
+
     Args:
       id: the player's id (please choose a unique one).
       name: the player's full name (need not be unique).
     """
-    db = connect()
-    db.cursor().execute("INSERT INTO players (id, name) VALUES (%s, %s)", (id, name))
-    db.commit()
-    db.close()
+    commitQuery("INSERT INTO players (id, name) VALUES (%s, %s)", (id, name))
 
 def joinTournament(player, tournament):
     """Register a player to a specific tournament
@@ -101,11 +101,7 @@ def joinTournament(player, tournament):
       player: the player's id.
       tournament: the tournament's id.
     """
-    db = connect()
-    cursor = db.cursor()
-    cursor.execute("INSERT INTO tournaments_score (tournament_id, player_id) VALUES(%s,%s)", (tournament, player))
-    db.commit()
-    db.close()
+    commitQuery("INSERT INTO tournaments_score (tournament_id, player_id) VALUES(%s,%s)", (tournament, player))
 
 def playerStandings(tournament):
     """Returns a list of the players and their win records, sorted by wins for a specific tournament.
@@ -122,12 +118,7 @@ def playerStandings(tournament):
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    db = connect()
-    cursor = db.cursor()
-    cursor.execute("SELECT player_id, name, wins, matches FROM tournaments_score, players WHERE tournaments_score.player_id =                            players.id AND tournament_id = %s ORDER BY wins DESC", (tournament,))
-    results = cursor.fetchall()
-    db.close()
-    return results
+    return executeQuery("SELECT player_id, name, wins, matches FROM tournaments_score, players WHERE tournaments_score.player_id = players.id AND tournament_id = %s ORDER BY wins DESC", (tournament,))
 
 def reportMatch(tournament, winner, loser):
     """Records the outcome of a single match between two players for a specific tournament.
@@ -137,13 +128,9 @@ def reportMatch(tournament, winner, loser):
       winner: the id number of the player who won.
       loser: the id number of the player who lost.
     """
-    db = connect()
-    cursor = db.cursor()
-    cursor.execute("INSERT INTO matches (tournament_id, winner_id, loser_id) VALUES (%s, %s, %s)", (tournament, winner, loser))
-    cursor.execute("UPDATE tournaments_score SET wins = wins + 1, matches = matches + 1 WHERE tournament_id = %s AND player_id =                         %s", (tournament, winner))
-    cursor.execute("UPDATE tournaments_score SET matches = matches + 1 WHERE tournament_id = %s AND player_id =                                          %s", (tournament, loser))
-    db.commit()
-    db.close()
+    commitQuery("INSERT INTO matches (tournament_id, winner_id, loser_id) VALUES (%s, %s, %s)", (tournament, winner, loser))
+    commitQuery("UPDATE tournaments_score SET wins = wins + 1, matches = matches + 1 WHERE tournament_id = %s AND player_id = %s", (tournament, winner))
+    commitQuery("UPDATE tournaments_score SET matches = matches + 1 WHERE tournament_id = %s AND player_id = %s", (tournament, loser))
 
 def swissPairings(tournament):
     """Returns a list of pairs of players for the next round of a match for a specific tournament.
